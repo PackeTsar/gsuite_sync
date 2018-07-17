@@ -1,3 +1,4 @@
 
 *.pyc
 credentials.json
+credentials_test.json
