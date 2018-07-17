@@ -1,4 +1,4 @@
-
+#!/usr/bin/python
 
 """
 gsuite_sync.gsuite_pull contains the functions used to pull Chrome device data
