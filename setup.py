@@ -7,10 +7,10 @@ from setuptools import setup
 from setuptools import find_packages
 
 # Fix for tox to run OK. Adds in path to find README and requirements files
-# for path in sys.path:
-#     if "gsuite_sync" in path:
-#         __file__ = os.path.join(re.findall(".*gsuite_sync", path)[0],
-#                                 "setup.py")
+for path in sys.path:
+    if "gsuite_sync" in path:
+        __file__ = os.path.join(re.findall(".*gsuite_sync", path)[0],
+                                "setup.py")
 
 
 with open(

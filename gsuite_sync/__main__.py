@@ -13,7 +13,7 @@ import logging
 import argparse
 
 # GSuite_Sync Libraries
-import gsuite_pull
+from . import gsuite_pull
 
 
 # log (console) is used to output data to the console properly formatted
