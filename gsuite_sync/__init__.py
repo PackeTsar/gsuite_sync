@@ -1,5 +1,5 @@
-from . import gsuite_pull
-from . import ise_push
+from . import google
+from . import ise
 from . import __main__
 
 name = "GSuite_Sync"

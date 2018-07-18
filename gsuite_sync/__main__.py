@@ -7,13 +7,16 @@ function between GSuite and ISE.
 
 # Built-In Libraries
 import os
+import re
 import sys
 import json
 import logging
 import argparse
+import time
 
 # GSuite_Sync Libraries
-from . import gsuite_pull
+from . import google
+from . import ise
 
 
 # log (console) is used to output data to the console properly formatted
@@ -36,12 +39,14 @@ def _parse_args(startlogs):
  Sync Chromebook MAC addresses from your GSuite into Cisco ISE ',
         formatter_class=argparse.RawTextHelpFormatter,
         add_help=False)
+    # Misc arguments are meant for informational help-based arguments
+    misc = parser.add_argument_group('Misc Arguments')
     # Required arguments are needed to start the program
     required = parser.add_argument_group('Required Arguments')
     # Optional arguments are not required for the start of the program
     optional = parser.add_argument_group('Optional Arguments')
     # Misc arguments are meant for informational help-based arguments
-    misc = parser.add_argument_group('Misc Arguments')
+    actions = parser.add_argument_group('Action Arguments')
     misc.add_argument(
                         "-h", "--help",
                         help="show this help message and exit",
@@ -53,8 +58,43 @@ def _parse_args(startlogs):
     required.add_argument(
                         '-gc', "--gsuite_credential",
                         help="GSuite Credential File",
-                        metavar='CRED_FILE',
+                        metavar='CREDENTIAL_FILE',
                         dest="gsuite_credential")
+    optional.add_argument(
+                        '-gm', "--gsuite_path_match",
+                        help="GSuite Object Path Match Pattern",
+                        metavar='REGEX',
+                        dest="gsuite_path_match")
+    required.add_argument(
+                        '-ia', "--ise_address",
+                        help="ISE DNS or IP Address",
+                        metavar='IP/ADDRESS',
+                        dest="ise_address")
+    required.add_argument(
+                        '-iu', "--ise_username",
+                        help="ISE Login Username",
+                        metavar='USERNAME',
+                        dest="ise_username")
+    required.add_argument(
+                        '-ip', "--ise_password",
+                        help="ISE Login Password",
+                        metavar='PASSWORD',
+                        dest="ise_password")
+    required.add_argument(
+                        '-ig', "--ise_group",
+                        help="ISE Target Endpoint Group",
+                        metavar='GROUP_NAME',
+                        dest="ise_group")
+    optional.add_argument(
+                        '-c', "--config_file",
+                        help="Config File Path",
+                        metavar='CONFIG_FILE',
+                        dest="config_file")
+    optional.add_argument(
+                        '-l', "--logfiles",
+                        help="Log File Path",
+                        metavar='LOG_FILE',
+                        dest="logfile")
     optional.add_argument(
                         '-d', "--debug",
                         help="""Set debug level (WARNING by default)
@@ -62,22 +102,55 @@ def _parse_args(startlogs):
         Debug level DEBUG: '-d'""",
                         dest="debug",
                         action='count')
-    optional.add_argument(
-                    '-l', "--logfile",
-                    help="""File for logging output
-Examples:
-    '-l /home/user/logs/mylogfile.txt'""",
-                    metavar='PATH',
-                    dest="logfiles",
-                    action="append")
+    actions.add_argument(
+                        '-fs', "--full_sync",
+                        help="Perform full sync of GSuite MACs to ISE Group",
+                        dest="full_sync",
+                        action='store_true')
+    actions.add_argument(
+                        '-um', "--update_mac",
+                        help="Push an individual MAC to the ISE Group",
+                        metavar='MAC_ADDRESS',
+                        dest="update_mac")
+    actions.add_argument(
+                        '-us', "--update_serial",
+                        help="Lookup a device's MAC and update it in the ISE Group",
+                        metavar='SERIAL_NUMBER',
+                        dest="update_serial")
     args = parser.parse_args()
+    _import_config_file(startlogs, args)
     startlogs.append({
         "level": "debug",
-        "message": "gsuite_sync._parse_args: Args returned:\n{}".format(
+        "message": "gsuite_sync._parse_args: Complete Args:\n{}".format(
             json.dumps(args.__dict__, indent=4)
             )
         })
     return args
+
+
+def _import_config_file(startlogs, args):
+    if not args.config_file:
+        startlogs.append({
+            "level": "info",
+            "message": "gsuite_sync._import_config_file:\
+No config file defined. All info must be present in command arguments"
+            })
+    elif not os.path.isfile(args.config_file):
+        startlogs.append({
+            "level": "warning",
+            "message": "gsuite_sync._import_config_file:\
+ Config file ({}) does not exist! Ignoring it."
+            })
+    else:
+        f = open(args.config_file, "r")
+        data = json.loads(f.read())
+        f.close()
+        for item in data:
+            if item in args.__dict__:
+                if not args.__dict__[item]:
+                    args.__dict__[item] = data[item]
+            else:
+                args.__dict__[item] = data[item]
 
 
 def _start_logging(startlogs, args):
@@ -139,16 +212,92 @@ def _start_logging(startlogs, args):
         log.log(maps[msg["level"]], msg["message"])
 
 
-def _get_gsuite_devices(args):
-    if not args.gsuite_credential:
-        log.error("gsuite_sync._get_gsuite_credential:\
- GSuite credential required and not defined. Quitting")
-        sys.exit()
-    else:
-        log.info("gsuite_sync._get_gsuite_credential:\
- Calling gsuite_pull.pull_devices with credential file ({})".format(
-                 args.gsuite_credential))
-        return gsuite_pull.pull_devices(args.gsuite_credential)
+def filter_devices(devices, regex):
+    if not regex:
+        log.info("gsuite_sync.filter_devices:\
+ No filter set. Returning all ({}) devices".format(len(devices)))
+        return devices
+    result = []
+    removed = 0
+    added = 0
+    log.info("gsuite_sync.filter_devices:\
+ Filtering devices using ({})".format(regex))
+    for device in devices:
+        if re.search(regex, device["orgUnitPath"]):
+            result.append(device)
+            added += 1
+        else:
+            removed += 1
+    log.info("gsuite_sync.filter_devices:\
+ Filtered out ({}) devices and kept ({})".format(removed, added))
+    return result
+
+
+def reconcile_macs(devices, endpoints):
+    log.info("gsuite_sync.reconcile_macs:\
+ Reconciling ({}) devices and ({}) endpoints".format(len(devices), len(endpoints)))
+    ###################################
+    devicebymac = {}
+    endpointbymac = {}
+    nomac = 0
+    for device in devices:
+        if "macAddress" in device:
+            mac = device["macAddress"]
+            devicebymac.update({mac: device})
+        else:
+            nomac += 1
+    for endpoint in endpoints:
+        mac = endpoint["name"]
+        mac = mac.replace(":", "")
+        mac = mac.lower()
+        endpointbymac.update({mac: endpoint})
+    ###################################
+    in_ise = []
+    not_in_ise = []
+    for devicemac in devicebymac:
+        if devicemac in endpointbymac:
+            devicebymac[devicemac].update({"endpoint": endpointbymac[devicemac]})
+            in_ise.append(devicebymac[devicemac])
+        else:
+            not_in_ise.append(devicebymac[devicemac])
+    log.info("gsuite_sync.reconcile_macs:\
+ Devices found in ISE: {}".format(len(in_ise)))
+    log.info("gsuite_sync.reconcile_macs:\
+ Devices NOT found in ISE: {}".format(len(not_in_ise)))
+    log.info("gsuite_sync.reconcile_macs:\
+ Devices without a MAC listed: {}".format(nomac))
+    return (in_ise, not_in_ise)
+
+
+def pop_qty(qty, source):
+    result = []
+    while len(result) < qty:
+        if len(source) == 0:
+            break
+        else:
+            result.append(source.pop(0))
+    return result
+
+
+def update(iseauth, group, in_ise, not_in_ise):
+    while not_in_ise:
+        push_devices = pop_qty(500, not_in_ise)
+        ise.bulk_update(iseauth, group, push_devices)
+        time.sleep(10)
+    while in_ise:
+        push_devices = pop_qty(500, not_in_ise)
+        ise.bulk_update(iseauth, group, push_devices)
+        time.sleep(10)
+
+
+def get_mac_by_serial(google_auth, serial):
+    serial = serial.upper()
+    devices = google.pull_devices(google_auth)
+    for device in devices:
+        if device["serialNumber"] == serial:
+            return device
+    raise Exception("Serial Number ({}) Not Found!".format(serial))
+
 
 
 def main():
@@ -158,8 +307,25 @@ def main():
     startlogs = []  # Logs drop here until the logging facilities are ready
     args = _parse_args(startlogs)
     _start_logging(startlogs, args)
-    devices = _get_gsuite_devices(args)
-
+    google_auth = google.get_service(args.gsuite_credential)
+    ise_auth = ise.ise_auth(
+        args.ise_address,
+        args.ise_username,
+        args.ise_password
+    )
+    if args.update_mac:
+        group = ise.pull_group(ise_auth, args.ise_group)
+        ise.update_mac(ise_auth, group, args.update_mac)
+    if args.update_serial:
+        device = get_mac_by_serial(google_auth, args.update_serial)
+        group = ise.pull_group(ise_auth, args.ise_group)
+        ise.update_mac(ise_auth, group, device)
+    #devices = _get_gsuite_devices(args)
+    #devices = filter_devices(devices, args.gsuite_path_match)
+    #group = ise.pull_group(iseauth, args.ise_group)
+    #endpoints = ise.pull_all_endpoints(iseauth)
+    #in_ise, not_in_ise = reconcile_macs(devices, endpoints)
+    #update(iseauth, group, in_ise, not_in_ise)
 
 if __name__ == "__main__":
     main()

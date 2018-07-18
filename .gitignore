@@ -1,4 +1,5 @@
 
 *.pyc
 credentials.json
-credentials_test.json
+config.json
+logs.log
