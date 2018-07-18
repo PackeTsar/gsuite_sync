@@ -21,29 +21,30 @@ import logging
 
 # log (console) is used to output data to the console properly formatted
 log = logging.getLogger("console")
-# datalog is used to output structured data without formatting
-datalog = logging.getLogger("data")
+# bulklog is used to output structured data without formatting
+bulklog = logging.getLogger("bulk")
 
 
 def get_service(credfile):
-    log.info("gsuite_sync.gsuite_pull.get_service:\
- Called. Pulling credential data from ({})".format(credfile))
+    log.debug("gsuite_sync.gsuite_pull.get_service:\
+ Pulling credential data from ({})".format(credfile))
     SCOPES = 'https://www.googleapis.com/auth/admin.directory.user'
     store = file.Storage(credfile)
     creds = store.get()
-    log.info("gsuite_sync.gsuite_pull.get_service:\
+    log.debug("gsuite_sync.gsuite_pull.get_service:\
  Pulled credentials. Connecting to GSuite")
     service = build('admin', 'directory_v1', http=creds.authorize(Http()))
     log.info("gsuite_sync.gsuite_pull.get_service:\
  Successfully connected to Google!")
     return service
 
+
 def pull_devices(service):
     devices = []
     request = service.chromeosdevices().list(customerId='my_customer')
     response = request.execute()
-#    log.debug("gsuite_sync.gsuite_pull.pull_devices:\
-# Response:\n{}".format(json.dumps(response, indent=4)))
+    bulklog.info("gsuite_sync.gsuite_pull.pull_devices:\
+ Response:\n{}".format(json.dumps(response, indent=4)))
     devices += response["chromeosdevices"]
     log.info("gsuite_sync.gsuite_pull.pull_devices:\
  Inventoried ({}) devices so far".format(len(devices)))
@@ -51,13 +52,13 @@ def pull_devices(service):
         while "nextPageToken" in response:
             request = service.chromeosdevices().list_next(request, response)
             response = request.execute()
-#            log.debug("gsuite_sync.gsuite_pull.pull_devices:\
-# Response:\n{}".format(json.dumps(response, indent=4)))
+            bulklog.info("gsuite_sync.gsuite_pull.pull_devices:\
+ Response:\n{}".format(json.dumps(response, indent=4)))
             devices += response["chromeosdevices"]
             log.info("gsuite_sync.gsuite_pull.pull_devices:\
  Inventoried ({}) devices so far".format(len(devices)))
-#        log.debug("gsuite_sync.gsuite_pull.pull_devices:\
-#     All devices:\n{}".format(json.dumps(devices, indent=4)))
+        bulklog.info("gsuite_sync.gsuite_pull.pull_devices:\
+     All devices:\n{}".format(json.dumps(devices, indent=4)))
     except KeyboardInterrupt:
         log.warning("gsuite_sync.gsuite_pull.pull_devices:\
  Stopped, returning the ({}) devices we have so far".format(len(devices)))

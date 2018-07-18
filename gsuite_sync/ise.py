@@ -23,8 +23,8 @@ import time
 
 # log (console) is used to output data to the console properly formatted
 log = logging.getLogger("console")
-# datalog is used to output structured data without formatting
-datalog = logging.getLogger("data")
+# bulklog is used to output structured data without formatting
+bulklog = logging.getLogger("bulk")
 # Disable SSL warnings
 urllib3.disable_warnings()
 
@@ -42,12 +42,14 @@ class ise_auth:
             "authorization": self.authstring,
             "cache-control": "no-cache"
         }
-        log.info("gsuite_sync.ise.ise_auth.__init__:\
+        log.debug("gsuite_sync.ise.ise_auth.__init__:\
  Instantiated ISE authentication with headers:\n{}".format(
                  json.dumps(self.headers, indent=4)))
         self.ise_version = self.get("/ers/config/internaluser/versioninfo")
         log.info("gsuite_sync.ise.ise_auth.__init__:\
- Successfully connected to ISE! Version Info:\n{}".format(
+ Successfully connected to ISE!")
+        log.debug("gsuite_sync.ise.ise_auth.__init__:\
+ ISE Version Info:\n{}".format(
                  self.ise_version.text))
 
     def _gen_authstring(self):
@@ -68,6 +70,11 @@ class ise_auth:
                 response.status_code,
                 json.dumps(dict(response.headers), indent=4),
                 response.text))
+        bulklog.info("gsuite_sync.ise.ise_auth.get:\
+ Response:\nCode: {}\nHeaders: {}\nBody: {}".format(
+            response,
+            json.dumps(dict(response.headers), indent=4),
+            response.text))
         return response
 
     def put(self, uri, data):
@@ -82,6 +89,11 @@ class ise_auth:
             raise Exception("Bad ISE Response ({}):\n{}".format(
                 str(response.status_code),
                 response.text))
+        bulklog.info("gsuite_sync.ise.ise_auth.put:\
+ Response:\nCode: {}\nHeaders: {}\nBody: {}".format(
+            response,
+            json.dumps(dict(response.headers), indent=4),
+            response.text))
         return response
 
     def post(self, uri, data):
@@ -96,38 +108,12 @@ class ise_auth:
             raise Exception("Bad ISE Response ({}):\n{}".format(
                 str(response.status_code),
                 response.text))
+        bulklog.info("gsuite_sync.ise.ise_auth.post:\
+ Response:\nCode: {}\nHeaders: {}\nBody: {}".format(
+            response,
+            json.dumps(dict(response.headers), indent=4),
+            response.text))
         return response
-
-
-def pull_version(address, username, password):
-    uri = "/ers/config/internaluser/versioninfo"
-    authcode = b64encode(b"{}:{}".format(username, password))
-    authcode = authcode.decode("ascii")
-    authstring = "Basic {}".format(authcode)
-    headers = {
-        "accept": "application/json",
-        "authorization": authstring,
-        "cache-control": "no-cache"
-    }
-    response = requests.request("GET", url, headers=headers, verify=False)
-    return json.loads(response.text)
-
-
-def pull_group(address, username, password, group_name):
-    url = "https://{}:9060/ers/config/endpointgroup".format(address)
-    authcode = b64encode(b"{}:{}".format(username, password))
-    authcode = authcode.decode("ascii")
-    authstring = "Basic {}".format(authcode)
-    headers = {
-        "accept": "application/json",
-        "authorization": authstring,
-        "cache-control": "no-cache"
-    }
-    response = requests.request("GET", url, headers=headers, verify=False)
-    data = json.loads(response.text)
-    for group in data["SearchResult"]["resources"]:
-        if group["name"] == group_name:
-            return group
 
 
 def pull_endpoint_list(address, username, password, group_name):
@@ -177,7 +163,9 @@ def pull_group(auth, group_name):
     for group in data["SearchResult"]["resources"]:
         if group["name"] == group_name:
             log.info("gsuite_sync.ise.pull_group:\
- Found matching ISE group:\n{}".format(
+ Found matching ISE group ID ({})".format(group["id"]))
+            log.debug("gsuite_sync.ise.pull_group:\
+ Matching ISE Group Data:\n{}".format(
                      json.dumps(group, indent=4)))
             return group
 

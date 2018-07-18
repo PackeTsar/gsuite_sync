@@ -21,8 +21,8 @@ from . import ise
 
 # log (console) is used to output data to the console properly formatted
 log = logging.getLogger("console")
-# datalog is used to output structured data without formatting
-datalog = logging.getLogger("data")
+# bulklog is used to output structured data without formatting
+bulklog = logging.getLogger("bulk")
 
 
 def _parse_args(startlogs):
@@ -164,24 +164,26 @@ def _start_logging(startlogs, args):
         "level": "debug",
         "message": "gsuite_sync._start_logging: Configuring logging"
         })
-    # datalog logging level is always info as it is not used for
+    # bulklog logging level is always info as it is not used for
     #  debugging or reporting warning and errors
-    datalog.setLevel(logging.INFO)
+    bulklog.setLevel(logging.INFO)
     # consoleHandler is used for outputting to the console for log and modlog
     consoleHandler = logging.StreamHandler()
-    # dataHandler is used to write to std.out so the output data can be piped
+    # bulkHandler is used to write to std.out so the output data can be piped
     #  into other applications without being mangled by informational logs
-    dataHandler = logging.StreamHandler(sys.stdout)
+    bulkHandler = logging.StreamHandler()
     # Standard format for informational logging
     format = logging.Formatter(
         "%(asctime)s [%(threadName)-12.12s] [%(levelname)-5.5s]  %(message)s"
         )
-    # Standard format used for console (non-std.out) output
+    # Standard format used for console output
     consoleHandler.setFormatter(format)
+    # Standard format used for bulk output
+    bulkHandler.setFormatter(format)
     # Console output (non-std.out) handler used on log
     log.addHandler(consoleHandler)
-    # std.out handler used on datalog
-    datalog.addHandler(dataHandler)
+    # std.out handler used on bulklog
+    bulklog.addHandler(bulkHandler)
     # If any logfiles were pased in the arguments
     if args.logfiles:
         for file in args.logfiles:
@@ -191,14 +193,20 @@ def _start_logging(startlogs, args):
             fileDataHandler = logging.FileHandler(file)
             fileConsoleHandler.setFormatter(format)
             log.addHandler(fileConsoleHandler)
-            datalog.addHandler(fileDataHandler)
+            bulklog.addHandler(fileDataHandler)
     # Set debug levels based on how many "-d" args were parsed
     if not args.debug:
         log.setLevel(logging.WARNING)
+        bulklog.setLevel(logging.WARNING)
     elif args.debug == 1:
         log.setLevel(logging.INFO)
+        bulklog.setLevel(logging.WARNING)
     elif args.debug == 2:
         log.setLevel(logging.DEBUG)
+        bulklog.setLevel(logging.WARNING)
+    elif args.debug == 3:
+        log.setLevel(logging.DEBUG)
+        bulklog.setLevel(logging.INFO)
     # Mappings for startlog entries to be passed properly into the log facility
     maps = {
            "debug": logging.DEBUG,
