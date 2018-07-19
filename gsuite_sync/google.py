@@ -17,6 +17,7 @@ import argparse
 # Built-In Libraries
 import json
 import logging
+import os
 
 
 # log (console) is used to output data to the console properly formatted
@@ -39,8 +40,16 @@ def get_service(credfile):
     return service
 
 
-def pull_devices(service):
+def pull_devices(service, cache=True):
     devices = []
+    #########################################################
+    if cache:
+        if os.path.isfile("google_cache.json"):
+            f = open("google_cache.json")
+            data = json.loads(f.read())
+            f.close()
+            return data
+    #########################################################
     request = service.chromeosdevices().list(customerId='my_customer')
     response = request.execute()
     bulklog.info("gsuite_sync.gsuite_pull.pull_devices:\
@@ -62,6 +71,11 @@ def pull_devices(service):
     except KeyboardInterrupt:
         log.warning("gsuite_sync.gsuite_pull.pull_devices:\
  Stopped, returning the ({}) devices we have so far".format(len(devices)))
+    #########################################################
+    f = open("google_cache.json", "w")
+    f.write(json.dumps(devices, indent=4))
+    f.close()
+    #########################################################
     return devices
 
 

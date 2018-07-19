@@ -23,6 +23,8 @@ from . import ise
 log = logging.getLogger("console")
 # bulklog is used to output structured data without formatting
 bulklog = logging.getLogger("bulk")
+# report is used to output final data
+report = logging.getLogger("report")
 
 
 def _parse_args(startlogs):
@@ -117,6 +119,11 @@ def _parse_args(startlogs):
                         help="Lookup a device's MAC and update it in the ISE Group",
                         metavar='SERIAL_NUMBER',
                         dest="update_serial")
+    actions.add_argument(
+                        '-m', "--maintain",
+                        help="maintain pushing devices",
+                        dest="maintain",
+                        action='store_true')
     args = parser.parse_args()
     _import_config_file(startlogs, args)
     startlogs.append({
@@ -167,6 +174,8 @@ def _start_logging(startlogs, args):
     # bulklog logging level is always info as it is not used for
     #  debugging or reporting warning and errors
     bulklog.setLevel(logging.INFO)
+    # Reporting is always done as info or higher
+    report.setLevel(logging.INFO)
     # consoleHandler is used for outputting to the console for log and modlog
     consoleHandler = logging.StreamHandler()
     # bulkHandler is used to write to std.out so the output data can be piped
@@ -182,6 +191,8 @@ def _start_logging(startlogs, args):
     bulkHandler.setFormatter(format)
     # Console output (non-std.out) handler used on log
     log.addHandler(consoleHandler)
+    # Reporting done same as log
+    report.addHandler(consoleHandler)
     # std.out handler used on bulklog
     bulklog.addHandler(bulkHandler)
     # If any logfiles were pased in the arguments
@@ -192,8 +203,10 @@ def _start_logging(startlogs, args):
             fileConsoleHandler = logging.FileHandler(file)
             fileDataHandler = logging.FileHandler(file)
             fileConsoleHandler.setFormatter(format)
+            fileDataHandler.setFormatter(format)
             log.addHandler(fileConsoleHandler)
             bulklog.addHandler(fileDataHandler)
+            report.addHandler(fileDataHandler)
     # Set debug levels based on how many "-d" args were parsed
     if not args.debug:
         log.setLevel(logging.WARNING)
@@ -238,6 +251,20 @@ def filter_devices(devices, regex):
             removed += 1
     log.info("gsuite_sync.filter_devices:\
  Filtered out ({}) devices and kept ({})".format(removed, added))
+    return result
+
+
+def strip_no_mac(devices):
+    nomac = 0
+    result = []
+    for device in devices:
+        if "macAddress" in device:
+            result.append(device)
+        else:
+            nomac += 1
+    log.info("gsuite_sync.strip_no_mac:\
+ Stripped ({}) devices with no MAC. Returning ({}) devices".format(
+        nomac, len(result)))
     return result
 
 
@@ -307,6 +334,123 @@ def get_mac_by_serial(google_auth, serial):
     raise Exception("Serial Number ({}) Not Found!".format(serial))
 
 
+def check_group_membership(devices, group_endpoints):
+    log.info("gsuite_sync.check_group_membership:\
+ Checking group membership for ({}) devices".format(len(devices)))
+    ###################################
+    devicebymac = {}
+    endpointbymac = {}
+    nomac = 0
+    for device in devices:
+        if "macAddress" in device:
+            mac = device["macAddress"]
+            devicebymac.update({mac: device})
+        else:
+            nomac += 1
+    for endpoint in group_endpoints:
+        mac = endpoint["name"]
+        mac = mac.replace(":", "")
+        mac = mac.lower()
+        endpointbymac.update({mac: endpoint})
+    ###################################
+    missing_devices = []
+    for dmac in devicebymac:
+        if dmac not in endpointbymac:
+            missing_devices.append(devicebymac[dmac])
+    group_extras = []
+    for emac in endpointbymac:
+        if emac not in devicebymac:
+            group_extras.append(endpointbymac[emac])
+    log.info("gsuite_sync.check_group_membership:\
+ Returning ({}) missing devices".format(len(missing_devices)))
+    return (missing_devices, group_extras)
+
+
+def maintain(args, google_auth, ise_auth, devices):
+    group = ise.pull_group(ise_auth, args.ise_group)
+    updated_devices = google.pull_devices(google_auth, cache=False)
+    updated_devices = filter_devices(updated_devices, args.gsuite_path_match)
+    updated_devices = strip_no_mac(updated_devices)
+    new_devices = []
+    for device in updated_devices:
+        if device not in devices:
+            new_devices.append(device)
+    if new_devices:
+        report.info("gsuite_sync.maintain:\
+ Pushing ({}) new devices".format(len(new_devices), json.dumps(new_devices, indent=4)))
+        for device in new_devices:
+            try:
+                ise.create_mac(ise_auth, group, device)
+                report.info("gsuite_sync.maintain:\
+ Device ({}) ({}) pushed as new device".format(device["macAddress"], device["serialNumber"]))
+            except Exception:
+                report.info("gsuite_sync.maintain:\
+ Updating ({}) ({}) since it is already an endpoint".format(device["macAddress"], device["serialNumber"]))
+                ise.update_mac(ise_auth, group, device)
+        report.info("gsuite_sync.maintain:\
+ Pushed ({}) new devices".format(len(new_devices), json.dumps(new_devices, indent=4)))
+    report.info("gsuite_sync.maintain:\
+ Returning ({}) total devices".format(len(updated_devices)))
+    return updated_devices
+
+
+def full_sync(args, google_auth, ise_auth):
+    group = ise.pull_group(ise_auth, args.ise_group)
+    devices = google.pull_devices(google_auth, cache=False)
+    devices = filter_devices(devices, args.gsuite_path_match)
+    devices = strip_no_mac(devices)
+    endpoints = ise.pull_all_endpoints(ise_auth, cache=False)
+    in_ise, not_in_ise = reconcile_macs(devices, endpoints)
+    while not_in_ise:
+        push_devices = pop_qty(500, not_in_ise)
+        ise.bulk_create(ise_auth, group, push_devices)
+        time.sleep(10)
+    while in_ise:
+        push_devices = pop_qty(500, in_ise)
+        ise.bulk_update(ise_auth, group, push_devices)
+        time.sleep(10)
+    report.info("gsuite_sync.full_sync:\
+ Processed ({}) devices and ({}) endpoints".format(len(devices), len(endpoints)))
+
+
+
+
+
+#    group_endpoints = ise.pull_group_endpoints(ise_auth, group)
+#    missing_devices, group_extras = check_group_membership(devices, group_endpoints)
+#    devices = google.pull_devices(google_auth)
+#    devices = filter_devices(devices, args.gsuite_path_match)
+#    devices = strip_no_mac(devices)
+#    endpoints = ise.pull_all_endpoints(ise_auth)
+#    endpoints = ise.pull_all_endpoints(ise_auth)
+#    in_ise, not_in_ise = reconcile_macs(devices, endpoints)
+#    devices_copy = list(in_ise)
+#    while devices_copy:
+#        push_devices = pop_qty(500, devices_copy)
+#        ise.bulk_update(ise_auth, group, push_devices)
+#        time.sleep(10)
+#    log.info("gsuite_sync.full_sync:\
+# Pausing for 5 seconds to let ISE complete bulk processing")
+#    time.sleep(5)
+#    group_endpoints = ise.pull_group_endpoints(ise_auth, group)
+#    missing_devices = check_group_membership(devices, group_endpoints)
+#    for device in missing_devices:
+#        ise.update_mac(ise_auth, group, device)
+
+
+
+
+
+
+    #endpoints = ise.pull_all_endpoints(ise_auth)
+    #in_ise, not_in_ise = reconcile_macs(devices, endpoints)
+    #in_ise_devices_copy = list(in_ise)
+    #while in_ise_devices_copy:
+    #    push_devices = pop_qty(500, in_ise_devices_copy)
+    #    ise.bulk_update(ise_auth, group, push_devices)
+    #    time.sleep(5)
+
+
 
 def main():
     """
@@ -328,12 +472,16 @@ def main():
         device = get_mac_by_serial(google_auth, args.update_serial)
         group = ise.pull_group(ise_auth, args.ise_group)
         ise.update_mac(ise_auth, group, device)
-    #devices = _get_gsuite_devices(args)
-    #devices = filter_devices(devices, args.gsuite_path_match)
-    #group = ise.pull_group(iseauth, args.ise_group)
-    #endpoints = ise.pull_all_endpoints(iseauth)
-    #in_ise, not_in_ise = reconcile_macs(devices, endpoints)
-    #update(iseauth, group, in_ise, not_in_ise)
+    if args.full_sync:
+        full_sync(args, google_auth, ise_auth)
+    if args.maintain:
+        devices = google.pull_devices(google_auth)
+        devices = filter_devices(devices, args.gsuite_path_match)
+        devices = strip_no_mac(devices)
+        while True:
+            devices = maintain(args, google_auth, ise_auth, devices)
+            time.sleep(10)
+
 
 if __name__ == "__main__":
     main()

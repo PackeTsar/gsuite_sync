@@ -3,3 +3,5 @@
 credentials.json
 config.json
 logs.log
+google_cache.json
+ise_cache.json
