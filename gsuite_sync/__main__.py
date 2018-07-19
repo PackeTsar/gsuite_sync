@@ -368,7 +368,12 @@ def check_group_membership(devices, group_endpoints):
 
 def maintain(args, google_auth, ise_auth, devices):
     group = ise.pull_group(ise_auth, args.ise_group)
-    updated_devices = google.pull_devices(google_auth, cache=False)
+    try:
+        updated_devices = google.pull_devices(google_auth, cache=False)
+    except Exception as e:
+        log.exception('gsuite_sync.maintain:\
+ Exception raised connecting to Google. Skipping')
+        updated_devices = devices
     updated_devices = filter_devices(updated_devices, args.gsuite_path_match)
     updated_devices = strip_no_mac(updated_devices)
     new_devices = []
