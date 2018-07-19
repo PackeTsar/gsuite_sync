@@ -9,8 +9,6 @@ from __future__ import print_function
 from builtins import input
 import requests
 import urllib3
-import xmltodict
-from urlparse import urlparse
 
 
 # Built-In Libraries
