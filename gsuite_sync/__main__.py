@@ -96,7 +96,7 @@ def _parse_args(startlogs):
                         '-l', "--logfiles",
                         help="Log File Path",
                         metavar='LOG_FILE',
-                        dest="logfile")
+                        dest="logfiles")
     optional.add_argument(
                         '-d', "--debug",
                         help="""Set debug level (WARNING by default)
