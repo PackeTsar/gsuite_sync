@@ -391,7 +391,12 @@ def maintain(args, google_auth, ise_auth, devices):
             except Exception:
                 report.info("gsuite_sync.maintain:\
  Updating ({}) ({}) since it is already an endpoint".format(device["macAddress"], device["serialNumber"]))
-                ise.update_mac(ise_auth, group, device)
+                try:
+                    ise.update_mac(ise_auth, group, device)
+                except Exception:
+                    report.exception("gsuite_sync.maintain:\
+ Failed to update ({}) ({}) as ISE seems to be offline".format(device["macAddress"], device["serialNumber"]))
+                    return devices
         report.info("gsuite_sync.maintain:\
  Pushed ({}) new devices".format(len(new_devices), json.dumps(new_devices, indent=4)))
     report.info("gsuite_sync.maintain:\
