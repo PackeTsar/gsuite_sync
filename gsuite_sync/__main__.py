@@ -50,80 +50,80 @@ def _parse_args(startlogs):
     # Misc arguments are meant for informational help-based arguments
     actions = parser.add_argument_group('Action Arguments')
     misc.add_argument(
-                        "-h", "--help",
-                        help="show this help message and exit",
-                        action="help")
+        "-h", "--help",
+        help="show this help message and exit",
+        action="help")
     misc.add_argument(
-                        "-v", "--version",
-                        action="version",
-                        version='GSuite_Sync v0.0.4')
+        "-v", "--version",
+        action="version",
+        version='GSuite_Sync v0.0.4')
     required.add_argument(
-                        '-gc', "--gsuite_credential",
-                        help="GSuite Credential File",
-                        metavar='CREDENTIAL_FILE',
-                        dest="gsuite_credential")
+        '-gc', "--gsuite_credential",
+        help="GSuite Credential File",
+        metavar='CREDENTIAL_FILE',
+        dest="gsuite_credential")
     optional.add_argument(
-                        '-gm', "--gsuite_path_match",
-                        help="GSuite Object Path Match Pattern",
-                        metavar='REGEX',
-                        dest="gsuite_path_match")
+        '-gm', "--gsuite_path_match",
+        help="GSuite Object Path Match Pattern",
+        metavar='REGEX',
+        dest="gsuite_path_match")
     required.add_argument(
-                        '-ia', "--ise_address",
-                        help="ISE DNS or IP Address",
-                        metavar='IP/ADDRESS',
-                        dest="ise_address")
+        '-ia', "--ise_address",
+        help="ISE DNS or IP Address",
+        metavar='IP/ADDRESS',
+        dest="ise_address")
     required.add_argument(
-                        '-iu', "--ise_username",
-                        help="ISE Login Username",
-                        metavar='USERNAME',
-                        dest="ise_username")
+        '-iu', "--ise_username",
+        help="ISE Login Username",
+        metavar='USERNAME',
+        dest="ise_username")
     required.add_argument(
-                        '-ip', "--ise_password",
-                        help="ISE Login Password",
-                        metavar='PASSWORD',
-                        dest="ise_password")
+        '-ip', "--ise_password",
+        help="ISE Login Password",
+        metavar='PASSWORD',
+        dest="ise_password")
     required.add_argument(
-                        '-ig', "--ise_group",
-                        help="ISE Target Endpoint Group",
-                        metavar='GROUP_NAME',
-                        dest="ise_group")
+        '-ig', "--ise_group",
+        help="ISE Target Endpoint Group",
+        metavar='GROUP_NAME',
+        dest="ise_group")
     optional.add_argument(
-                        '-c', "--config_file",
-                        help="Config File Path",
-                        metavar='CONFIG_FILE',
-                        dest="config_file")
+        '-c', "--config_file",
+        help="Config File Path",
+        metavar='CONFIG_FILE',
+        dest="config_file")
     optional.add_argument(
-                        '-l', "--logfiles",
-                        help="Log File Path",
-                        metavar='LOG_FILE',
-                        dest="logfiles")
+        '-l', "--logfiles",
+        help="Log File Path",
+        metavar='LOG_FILE',
+        dest="logfiles")
     optional.add_argument(
-                        '-d', "--debug",
-                        help="""Set debug level (WARNING by default)
+        '-d', "--debug",
+        help="""Set debug level (WARNING by default)
         Debug level INFO:  '-d'
         Debug level DEBUG: '-d'""",
-                        dest="debug",
-                        action='count')
+        dest="debug",
+        action='count')
     actions.add_argument(
-                        '-fs', "--full_sync",
-                        help="Perform full sync of GSuite MACs to ISE Group",
-                        dest="full_sync",
-                        action='store_true')
+        '-fs', "--full_sync",
+        help="Perform full sync of GSuite MACs to ISE Group",
+        dest="full_sync",
+        action='store_true')
     actions.add_argument(
-                        '-um', "--update_mac",
-                        help="Push an individual MAC to the ISE Group",
-                        metavar='MAC_ADDRESS',
-                        dest="update_mac")
+        '-um', "--update_mac",
+        help="Push an individual MAC to the ISE Group",
+        metavar='MAC_ADDRESS',
+        dest="update_mac")
     actions.add_argument(
-                        '-us', "--update_serial",
-                        help="Lookup a device's MAC and update it in the ISE Group",
-                        metavar='SERIAL_NUMBER',
-                        dest="update_serial")
+        '-us', "--update_serial",
+        help="Lookup a device's MAC and update it in the ISE Group",
+        metavar='SERIAL_NUMBER',
+        dest="update_serial")
     actions.add_argument(
-                        '-m', "--maintain",
-                        help="maintain pushing devices",
-                        dest="maintain",
-                        action='store_true')
+        '-m', "--maintain",
+        help="maintain pushing devices",
+        dest="maintain",
+        action='store_true')
     args = parser.parse_args()
     _import_config_file(startlogs, args)
     startlogs.append({
@@ -270,7 +270,9 @@ def strip_no_mac(devices):
 
 def reconcile_macs(devices, endpoints):
     log.info("gsuite_sync.reconcile_macs:\
- Reconciling ({}) devices and ({}) endpoints".format(len(devices), len(endpoints)))
+ Reconciling ({}) devices and ({}) endpoints".format(
+                                                     len(devices),
+                                                     len(endpoints)))
     ###################################
     devicebymac = {}
     endpointbymac = {}
@@ -291,7 +293,9 @@ def reconcile_macs(devices, endpoints):
     not_in_ise = []
     for devicemac in devicebymac:
         if devicemac in endpointbymac:
-            devicebymac[devicemac].update({"endpoint": endpointbymac[devicemac]})
+            devicebymac[devicemac].update({
+                "endpoint": endpointbymac[devicemac]
+                })
             in_ise.append(devicebymac[devicemac])
         else:
             not_in_ise.append(devicebymac[devicemac])
@@ -382,23 +386,33 @@ def maintain(args, google_auth, ise_auth, devices):
             new_devices.append(device)
     if new_devices:
         report.info("gsuite_sync.maintain:\
- Pushing ({}) new devices".format(len(new_devices), json.dumps(new_devices, indent=4)))
+ Pushing ({}) new devices".format(
+                                    len(new_devices),
+                                    json.dumps(new_devices, indent=4)))
         for device in new_devices:
             try:
                 ise.create_mac(ise_auth, group, device)
                 report.info("gsuite_sync.maintain:\
- Device ({}) ({}) pushed as new device".format(device["macAddress"], device["serialNumber"]))
+ Device ({}) ({}) pushed as new device".format(
+                                                device["macAddress"],
+                                                device["serialNumber"]))
             except Exception:
                 report.info("gsuite_sync.maintain:\
- Updating ({}) ({}) since it is already an endpoint".format(device["macAddress"], device["serialNumber"]))
+ Updating ({}) ({}) since it is already an endpoint".format(
+                                                    device["macAddress"],
+                                                    device["serialNumber"]))
                 try:
                     ise.update_mac(ise_auth, group, device)
                 except Exception:
                     report.exception("gsuite_sync.maintain:\
- Failed to update ({}) ({}) as ISE seems to be offline".format(device["macAddress"], device["serialNumber"]))
+ Failed to update ({}) ({}) as ISE seems to be offline".format(
+                                                device["macAddress"],
+                                                device["serialNumber"]))
                     return devices
         report.info("gsuite_sync.maintain:\
- Pushed ({}) new devices".format(len(new_devices), json.dumps(new_devices, indent=4)))
+ Pushed ({}) new devices".format(
+                                 len(new_devices),
+                                 json.dumps(new_devices, indent=4)))
     report.info("gsuite_sync.maintain:\
  Returning ({}) total devices".format(len(updated_devices)))
     return updated_devices
@@ -420,46 +434,9 @@ def full_sync(args, google_auth, ise_auth):
         ise.bulk_update(ise_auth, group, push_devices)
         time.sleep(10)
     report.info("gsuite_sync.full_sync:\
- Processed ({}) devices and ({}) endpoints".format(len(devices), len(endpoints)))
-
-
-
-
-
-#    group_endpoints = ise.pull_group_endpoints(ise_auth, group)
-#    missing_devices, group_extras = check_group_membership(devices, group_endpoints)
-#    devices = google.pull_devices(google_auth)
-#    devices = filter_devices(devices, args.gsuite_path_match)
-#    devices = strip_no_mac(devices)
-#    endpoints = ise.pull_all_endpoints(ise_auth)
-#    endpoints = ise.pull_all_endpoints(ise_auth)
-#    in_ise, not_in_ise = reconcile_macs(devices, endpoints)
-#    devices_copy = list(in_ise)
-#    while devices_copy:
-#        push_devices = pop_qty(500, devices_copy)
-#        ise.bulk_update(ise_auth, group, push_devices)
-#        time.sleep(10)
-#    log.info("gsuite_sync.full_sync:\
-# Pausing for 5 seconds to let ISE complete bulk processing")
-#    time.sleep(5)
-#    group_endpoints = ise.pull_group_endpoints(ise_auth, group)
-#    missing_devices = check_group_membership(devices, group_endpoints)
-#    for device in missing_devices:
-#        ise.update_mac(ise_auth, group, device)
-
-
-
-
-
-
-    #endpoints = ise.pull_all_endpoints(ise_auth)
-    #in_ise, not_in_ise = reconcile_macs(devices, endpoints)
-    #in_ise_devices_copy = list(in_ise)
-    #while in_ise_devices_copy:
-    #    push_devices = pop_qty(500, in_ise_devices_copy)
-    #    ise.bulk_update(ise_auth, group, push_devices)
-    #    time.sleep(5)
-
+ Processed ({}) devices and ({}) endpoints".format(
+                                                   len(devices),
+                                                   len(endpoints)))
 
 
 def main():
