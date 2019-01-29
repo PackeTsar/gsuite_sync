@@ -120,6 +120,11 @@ def _parse_args(startlogs):
         metavar='SERIAL_NUMBER',
         dest="update_serial")
     actions.add_argument(
+        '-lm', "--lookup_mac",
+        help="Lookup a device serial by MAC address",
+        metavar='MAC_ADDRESS',
+        dest="lookup_mac")
+    actions.add_argument(
         '-m', "--maintain",
         help="maintain pushing devices",
         dest="maintain",
@@ -337,6 +342,20 @@ def get_mac_by_serial(google_auth, serial):
     raise Exception("Serial Number ({}) Not Found!".format(serial))
 
 
+def get_serial_by_mac(google_auth, mac):
+    devices = google.pull_devices(google_auth)
+    for device in devices:
+        if "macAddress" in device:
+            if device["macAddress"] == mac:
+                log.debug("gsuite_sync.get_serial_by_mac:\
+ Found Device from MAC ({}): \n{}".format(mac,
+                                          json.dumps(device, indent=4)))
+                log.info("gsuite_sync.get_serial_by_mac:\
+ Found Device from MAC ({}): {}".format(mac, device["serialNumber"]))
+                return device
+    raise Exception("MAC Address ({}) Not Found!".format(mac))
+
+
 def check_group_membership(devices, group_endpoints):
     log.info("gsuite_sync.check_group_membership:\
  Checking group membership for ({}) devices".format(len(devices)))
@@ -451,6 +470,8 @@ def main():
         args.ise_username,
         args.ise_password
     )
+    if args.lookup_mac:
+        get_serial_by_mac(google_auth, args.lookup_mac)
     if args.update_mac:
         group = ise.pull_group(ise_auth, args.ise_group)
         ise.update_mac(ise_auth, group, args.update_mac)
