@@ -56,12 +56,17 @@ def _parse_args(startlogs):
     misc.add_argument(
         "-v", "--version",
         action="version",
-        version='GSuite_Sync v0.0.6')
+        version='GSuite_Sync v0.0.10')
     required.add_argument(
         '-gc', "--gsuite_credential",
         help="GSuite Credential File",
         metavar='CREDENTIAL_FILE',
         dest="gsuite_credential")
+    optional.add_argument(
+        '-ec', "--enable_cache",
+        help="Enable caching of ISE and Google data into JSON files",
+        dest="enable_cache",
+        action='store_true')
     optional.add_argument(
         '-gm', "--gsuite_path_match",
         help="GSuite Object Path Match Pattern",
@@ -335,7 +340,7 @@ def update(iseauth, group, in_ise, not_in_ise):
 
 
 def get_mac_by_serial(google_auth, serial):
-    devices = google.pull_devices(google_auth)
+    devices = google.pull_devices(google_auth, cache=caching)
     for device in devices:
         if device["serialNumber"] == serial:
             return device
@@ -343,7 +348,12 @@ def get_mac_by_serial(google_auth, serial):
 
 
 def get_serial_by_mac(google_auth, mac):
-    devices = google.pull_devices(google_auth)
+    mac = mac.replace(":", "")
+    mac = mac.replace(".", "")
+    mac = mac.lower()
+    log.info("gsuite_sync.get_serial_by_mac:\
+ performing lookup of MAC ({})".format(mac))
+    devices = google.pull_devices(google_auth, cache=caching)
     for device in devices:
         if "macAddress" in device:
             if device["macAddress"] == mac:
@@ -391,7 +401,7 @@ def check_group_membership(devices, group_endpoints):
 def maintain(args, google_auth, ise_auth, devices):
     group = ise.pull_group(ise_auth, args.ise_group)
     try:
-        updated_devices = google.pull_devices(google_auth, cache=False)
+        updated_devices = google.pull_devices(google_auth, cache=caching)
     except Exception as e:
         log.exception('gsuite_sync.maintain:\
  Exception raised connecting to Google. Skipping')
@@ -438,10 +448,10 @@ def maintain(args, google_auth, ise_auth, devices):
 
 def full_sync(args, google_auth, ise_auth):
     group = ise.pull_group(ise_auth, args.ise_group)
-    devices = google.pull_devices(google_auth, cache=False)
+    devices = google.pull_devices(google_auth, cache=caching)
     devices = filter_devices(devices, args.gsuite_path_match)
     devices = strip_no_mac(devices)
-    endpoints = ise.pull_all_endpoints(ise_auth, cache=False)
+    endpoints = ise.pull_all_endpoints(ise_auth, cache=caching)
     in_ise, not_in_ise = reconcile_macs(devices, endpoints)
     while not_in_ise:
         push_devices = pop_qty(500, not_in_ise)
@@ -463,6 +473,8 @@ def main():
     """
     startlogs = []  # Logs drop here until the logging facilities are ready
     args = _parse_args(startlogs)
+    global caching
+    caching = args.enable_cache
     _start_logging(startlogs, args)
     google_auth = google.get_service(args.gsuite_credential)
     ise_auth = ise.ise_auth(
@@ -482,7 +494,7 @@ def main():
     if args.full_sync:
         full_sync(args, google_auth, ise_auth)
     if args.maintain:
-        devices = google.pull_devices(google_auth)
+        devices = google.pull_devices(google_auth, cache=caching)
         devices = filter_devices(devices, args.gsuite_path_match)
         devices = strip_no_mac(devices)
         while True:

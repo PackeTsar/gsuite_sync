@@ -44,8 +44,8 @@ def pull_devices(service, cache=True):
     devices = []
     #########################################################
     if cache:
-        if os.path.isfile("google_cache.json"):
-            f = open("google_cache.json")
+        if os.path.isfile("/opt/gsync_cache/google_cache.json"):
+            f = open("/opt/gsync_cache/google_cache.json")
             data = json.loads(f.read())
             f.close()
             return data
@@ -72,7 +72,7 @@ def pull_devices(service, cache=True):
         log.warning("gsuite_sync.gsuite_pull.pull_devices:\
  Stopped, returning the ({}) devices we have so far".format(len(devices)))
     #########################################################
-    f = open("google_cache.json", "w")
+    f = open("/opt/gsync_cache/google_cache.json", "w")
     f.write(json.dumps(devices, indent=4))
     f.close()
     #########################################################

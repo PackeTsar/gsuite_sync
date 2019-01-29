@@ -173,8 +173,8 @@ def pull_all_endpoints(auth, cache=True):
     endpoints = []
     #########################################################
     if cache:
-        if os.path.isfile("ise_cache.json"):
-            f = open("ise_cache.json")
+        if os.path.isfile("/opt/gsync_cache/ise_cache.json"):
+            f = open("/opt/gsync_cache/ise_cache.json")
             data = json.loads(f.read())
             f.close()
             return data
@@ -205,7 +205,7 @@ def pull_all_endpoints(auth, cache=True):
         log.warning("gsuite_sync.ise.pull_all_endpoints:\
  Stopped, returning the ({}) endpoints we have so far".format(len(endpoints)))
     #########################################################
-    f = open("ise_cache.json", "w")
+    f = open("/opt/gsync_cache/ise_cache.json", "w")
     f.write(json.dumps(endpoints, indent=4))
     f.close()
     #########################################################
