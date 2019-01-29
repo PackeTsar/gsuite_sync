@@ -330,7 +330,6 @@ def update(iseauth, group, in_ise, not_in_ise):
 
 
 def get_mac_by_serial(google_auth, serial):
-    serial = serial.upper()
     devices = google.pull_devices(google_auth)
     for device in devices:
         if device["serialNumber"] == serial:

@@ -155,7 +155,8 @@ def create_mac(address, username, password, group_id, mac):
 def pull_group(auth, group_name):
     log.info("gsuite_sync.ise.pull_group:\
  Called. Pulling group ID matching name ({})".format(group_name))
-    response = auth.get("/ers/config/endpointgroup")
+    uri = "/ers/config/endpointgroup?filter=name.EQ.{}".format(group_name)
+    response = auth.get(uri)
     data = json.loads(response.text)
     for group in data["SearchResult"]["resources"]:
         if group["name"] == group_name:
@@ -165,6 +166,7 @@ def pull_group(auth, group_name):
  Matching ISE Group Data:\n{}".format(
                      json.dumps(group, indent=4)))
             return group
+    raise Exception("Cannot find ISE group ({})".format(group_name))
 
 
 def pull_all_endpoints(auth, cache=True):
