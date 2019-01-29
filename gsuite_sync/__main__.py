@@ -56,7 +56,7 @@ def _parse_args(startlogs):
     misc.add_argument(
         "-v", "--version",
         action="version",
-        version='GSuite_Sync v0.0.10')
+        version='GSuite_Sync v0.0.11')
     required.add_argument(
         '-gc', "--gsuite_credential",
         help="GSuite Credential File",
@@ -398,26 +398,38 @@ def check_group_membership(devices, group_endpoints):
     return (missing_devices, group_extras)
 
 
-def maintain(args, google_auth, ise_auth, devices):
-    group = ise.pull_group(ise_auth, args.ise_group)
+def maintain(args, google_auth, ise_auth):
     try:
-        updated_devices = google.pull_devices(google_auth, cache=caching)
+        devices = google.pull_devices(google_auth, cache=caching)
     except Exception as e:
         log.exception('gsuite_sync.maintain:\
- Exception raised connecting to Google. Skipping')
-        updated_devices = devices
-    updated_devices = filter_devices(updated_devices, args.gsuite_path_match)
-    updated_devices = strip_no_mac(updated_devices)
-    new_devices = []
-    for device in updated_devices:
-        if device not in devices:
-            new_devices.append(device)
-    if new_devices:
+ Exception raised connecting to Google. Skipping for a few seconds')
+        return None
+    devices = filter_devices(devices, args.gsuite_path_match)
+    devices = strip_no_mac(devices)
+    try:
+        group = ise.pull_group(ise_auth, args.ise_group)
+        ise_endpoints = ise.pull_group_endpoints(ise_auth, group)
+    except Exception as e:
+        log.exception('gsuite_sync.maintain:\
+ Exception raised connecting to ISE. Skipping for a few seconds')
+        return None
+    ise_macs = []
+    for endpoint in ise_endpoints:
+        mac = endpoint["name"]
+        mac = mac.replace(":", "")
+        mac = mac.lower()
+        ise_macs.append(mac)
+    missing_devices = []
+    for device in devices:
+        if device["macAddress"] not in ise_macs:
+            missing_devices.append(device)
+    if not missing_devices:
+        report.info("No devices to push")
+    else:
         report.info("gsuite_sync.maintain:\
- Pushing ({}) new devices".format(
-                                    len(new_devices),
-                                    json.dumps(new_devices, indent=4)))
-        for device in new_devices:
+ Pushing ({}) devices".format(len(missing_devices)))
+        for device in missing_devices:
             try:
                 ise.create_mac(ise_auth, group, device)
                 report.info("gsuite_sync.maintain:\
@@ -436,14 +448,6 @@ def maintain(args, google_auth, ise_auth, devices):
  Failed to update ({}) ({}) as ISE seems to be offline".format(
                                                 device["macAddress"],
                                                 device["serialNumber"]))
-                    return devices
-        report.info("gsuite_sync.maintain:\
- Pushed ({}) new devices".format(
-                                 len(new_devices),
-                                 json.dumps(new_devices, indent=4)))
-    report.info("gsuite_sync.maintain:\
- Returning ({}) total devices".format(len(updated_devices)))
-    return updated_devices
 
 
 def full_sync(args, google_auth, ise_auth):
@@ -494,11 +498,8 @@ def main():
     if args.full_sync:
         full_sync(args, google_auth, ise_auth)
     if args.maintain:
-        devices = google.pull_devices(google_auth, cache=caching)
-        devices = filter_devices(devices, args.gsuite_path_match)
-        devices = strip_no_mac(devices)
         while True:
-            devices = maintain(args, google_auth, ise_auth, devices)
+            maintain(args, google_auth, ise_auth)
             time.sleep(10)
 
 

@@ -31,7 +31,7 @@ with open(
     req_file.close()
 
 setup(name='gsuite_sync',
-      version="0.0.10",
+      version="0.0.11",
       description='Sync Chromebook MAC\
  addresses from your GSuite into Cisco ISE',
       long_description=long_description,
