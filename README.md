@@ -13,20 +13,24 @@ To set up gsync as a service on Linux, follow the below process
 
 ### Prep the Linux OS with Python
 1. Install required OS packages for Python
-	- **Raspberry Pi** may need Python and PIP `sudo apt install -y python-pip` as well as `sudo apt-get install libffi-dev`
-	- **Debian (Ubuntu)** distributions may need Python and PIP
-		- Install Python and PIP: `sudo apt install -y python-pip`
-	- **RHEL (CentOS)** distributions usually need PIP
-		- Install the EPEL package: `sudo yum install -y epel-release`
-		- Install PIP: `sudo yum install -y python-pip`
+  - **Raspberry Pi** may need Python and PIP `sudo apt install -y python-pip` as well as `sudo apt-get install libffi-dev`
+  - **Debian (Ubuntu)** distributions may need Python and PIP
+    - Install Python and PIP: `sudo apt install -y python-pip`
+  - **RHEL (CentOS)** distributions usually need PIP
+    - Install the EPEL package: `sudo yum install -y epel-release`
+    - Install PIP: `sudo yum install -y python-pip`
+
+
+### Install GSync from PyPi
+1. Install using PIP: `pip install gsuite_sync`
 
 
 ### Install GSync from source
 1. Retrieve the source code repository using one of the two below methods
-	- **Method #1**: Install a Git client (process differs depending on OS) and clone the GSuite_Sync repository using Git `git clone https://github.com/PackeTsar/gsuite_sync.git`
-		- Change to the branch you want to install using `git checkout <branch_name>`
-	- **Method #2**: Download and extract the repository files from the [Github Repo](https://github.com/PackeTsar/gsuite_sync)
-		- Make sure to download the branch you want to install
+  - **Method #1**: Install a Git client (process differs depending on OS) and clone the GSuite_Sync repository using Git `git clone https://github.com/PackeTsar/gsuite_sync.git`
+    - Change to the branch you want to install using `git checkout <branch_name>`
+  - **Method #2**: Download and extract the repository files from the [Github Repo](https://github.com/PackeTsar/gsuite_sync)
+    - Make sure to download the branch you want to install
 2. Move into the gsuite_sync project directory `cd gsuite_sync`
 3. Run the setup.py file to build the package into the ./build/ directory `python setup.py build`
 4. Use PIP to install the package `pip install .`
@@ -84,13 +88,13 @@ Arguments can be passed in at the command line or with a config file. It is ofte
 #### Example Config File (/root/config.json)
 ```json
 {
-	"gsuite_credential": "/root/credentials.json",
-	"gsuite_path_match": "SOMEREGEXPATHMATCH",
-	"ise_address": "192.168.1.100",
-	"ise_username": "admin",
-	"ise_password": "admin123",
-	"ise_group": "my_special_group",
-	"logfiles": ["/etc/gsync/logs.log"]
+  "gsuite_credential": "/root/credentials.json",
+  "gsuite_path_match": "SOMEREGEXPATHMATCH",
+  "ise_address": "192.168.1.100",
+  "ise_username": "admin",
+  "ise_password": "admin123",
+  "ise_group": "my_special_group",
+  "logfiles": ["/etc/gsync/logs.log"]
 }
 ```
 
@@ -118,56 +122,56 @@ SCRIPTNAME=/etc/init.d/$NAME
 
 case "$1" in
 start)
-				printf "%-50s" "Starting $NAME..."
-				cd $DAEMON_PATH
-				PID=`stdbuf -o0 $DAEMON -c /root/config.json -m >> $STDOUTFILE 2>>$STDERR & echo $!`
-				#echo "Saving PID" $PID " to " $PIDFILE
-				if [ -z $PID ]; then
-						printf "%s
+        printf "%-50s" "Starting $NAME..."
+        cd $DAEMON_PATH
+        PID=`stdbuf -o0 $DAEMON -c /root/config.json -m >> $STDOUTFILE 2>>$STDERR & echo $!`
+        #echo "Saving PID" $PID " to " $PIDFILE
+        if [ -z $PID ]; then
+            printf "%s
 " "Fail"
-				else
-						echo $PID > $PIDFILE
-						printf "%s
+        else
+            echo $PID > $PIDFILE
+            printf "%s
 " "Ok"
-				fi
+        fi
 ;;
 status)
-				if [ -f $PIDFILE ]; then
-						PID=`cat $PIDFILE`
-						if [ -z "`ps axf | grep ${PID} | grep -v grep`" ]; then
-								printf "%s
+        if [ -f $PIDFILE ]; then
+            PID=`cat $PIDFILE`
+            if [ -z "`ps axf | grep ${PID} | grep -v grep`" ]; then
+                printf "%s
 " "Process dead but pidfile exists"
-						else
-								echo "$DAEMON (pid $PID) is running..."
-						fi
-				else
-						printf "%s
+            else
+                echo "$DAEMON (pid $PID) is running..."
+            fi
+        else
+            printf "%s
 " "$DAEMON is stopped"
-				fi
+        fi
 ;;
 stop)
-				printf "%-50s" "Stopping $NAME"
-						PID=`cat $PIDFILE`
-						cd $DAEMON_PATH
-				if [ -f $PIDFILE ]; then
-						kill -HUP $PID
-						printf "%s
+        printf "%-50s" "Stopping $NAME"
+            PID=`cat $PIDFILE`
+            cd $DAEMON_PATH
+        if [ -f $PIDFILE ]; then
+            kill -HUP $PID
+            printf "%s
 " "Ok"
-						rm -f $PIDFILE
-				else
-						printf "%s
+            rm -f $PIDFILE
+        else
+            printf "%s
 " "pidfile not found"
-				fi
+        fi
 ;;
 
 restart)
-				$0 stop
-				$0 start
+        $0 stop
+        $0 start
 ;;
 
 *)
-				echo "Usage: $0 {status|start|stop|restart}"
-				exit 1
+        echo "Usage: $0 {status|start|stop|restart}"
+        exit 1
 esac
 
 ```
