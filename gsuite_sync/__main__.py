@@ -398,17 +398,17 @@ def check_group_membership(devices, group_endpoints):
     return (missing_devices, group_extras)
 
 
-def maintain(args, google_auth, ise_auth):
+def maintain(args, google_auth, ise_auth, gsuite_path, ise_group):
     try:
         devices = google.pull_devices(google_auth, cache=caching)
     except Exception as e:
         log.exception('gsuite_sync.maintain:\
  Exception raised connecting to Google. Skipping for a few seconds')
         return None
-    devices = filter_devices(devices, args.gsuite_path_match)
+    devices = filter_devices(devices, gsuite_path)
     devices = strip_no_mac(devices)
     try:
-        group = ise.pull_group(ise_auth, args.ise_group)
+        group = ise.pull_group(ise_auth, ise_group)
         ise_endpoints = ise.pull_group_endpoints(ise_auth, group)
     except Exception as e:
         log.exception('gsuite_sync.maintain:\
@@ -499,8 +499,19 @@ def main():
         full_sync(args, google_auth, ise_auth)
     if args.maintain:
         while True:
-            maintain(args, google_auth, ise_auth)
-            time.sleep(10)
+            if type(args.gsuite_path_match) == list:
+                index = 0
+                for path in args.gsuite_path_match:
+                    ise_group = args.ise_group[index]
+                    report.info("Processing: {} -- {}".format(path, ise_group))
+                    maintain(args, google_auth,
+                             ise_auth, path, ise_group)
+                    index += 1
+                    time.sleep(10)
+            else:
+                maintain(args, google_auth,
+                         ise_auth, args.gsuite_path_match, args.ise_group)
+                time.sleep(10)
 
 
 if __name__ == "__main__":
