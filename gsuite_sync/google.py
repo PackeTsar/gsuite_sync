@@ -34,7 +34,7 @@ def get_service(credfile):
     creds = store.get()
     log.debug("gsuite_sync.gsuite_pull.get_service:\
  Pulled credentials. Connecting to GSuite")
-    service = build('admin', 'directory_v1', http=creds.authorize(Http()))
+    service = build('admin', 'directory_v1', credentials=creds)
     log.info("gsuite_sync.gsuite_pull.get_service:\
  Successfully connected to Google!")
     return service
