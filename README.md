@@ -11,14 +11,16 @@ Sync MAC addresses from your GSuite into Cisco ISE
 To set up gsync as a service on Linux, follow the below process
 
 
-### Prep the Linux OS with Python
+### Prep the Linux OS with Python3
 1. Install required OS packages for Python
   - **Raspberry Pi** may need Python and PIP `sudo apt install -y python-pip` as well as `sudo apt-get install libffi-dev`
   - **Debian (Ubuntu)** distributions may need Python and PIP
     - Install Python and PIP: `sudo apt install -y python-pip`
   - **RHEL (CentOS)** distributions usually need PIP
     - Install the EPEL package: `sudo yum install -y epel-release`
-    - Install PIP: `sudo yum install -y python-pip`
+    - Install PIP: `sudo yum install -y python36-pip`
+    - Back up the old Python2 binary: `mv /usr/bin/python /usr/bin/python-old`
+    - Make Python3 the default binary: `sudo ln -fs /usr/bin/python36 /usr/bin/python`
 
 
 ### Install GSync from PyPi
