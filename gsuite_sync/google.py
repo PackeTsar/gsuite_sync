@@ -8,13 +8,12 @@ from a GSuite account.
 
 # Installed Libraries
 from __future__ import print_function
-from apiclient.discovery import build
-from httplib2 import Http
-from oauth2client import file, client, tools
+from googleapiclient.discovery import build
 from builtins import input
 import argparse
 
 # Built-In Libraries
+import pickle
 import json
 import logging
 import os
@@ -30,8 +29,8 @@ def get_service(credfile):
     log.debug("gsuite_sync.gsuite_pull.get_service:\
  Pulling credential data from ({})".format(credfile))
     SCOPES = 'https://www.googleapis.com/auth/admin.directory.user'
-    store = file.Storage(credfile)
-    creds = store.get()
+    credential_file_obj = open(credfile, "rb")
+    creds = pickle.load(credential_file_obj)
     log.debug("gsuite_sync.gsuite_pull.get_service:\
  Pulled credentials. Connecting to GSuite")
     service = build('admin', 'directory_v1', credentials=creds)

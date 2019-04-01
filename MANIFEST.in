@@ -1,0 +1,2 @@
+include *.txt
+include get_creds.py
