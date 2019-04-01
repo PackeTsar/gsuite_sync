@@ -53,7 +53,9 @@ class ise_auth:
                  self.ise_version.text))
 
     def _gen_authstring(self):
-        authcode = b64encode(b"{}:{}".format(self.username, self.password))
+        authcode = "{}:{}".format(self.username, self.password)
+        authcode = str.encode(authcode)
+        authcode = b64encode(authcode)
         authcode = authcode.decode("ascii")
         authstring = "Basic {}".format(authcode)
         return authstring
@@ -205,9 +207,10 @@ def pull_all_endpoints(auth, cache=True):
         log.warning("gsuite_sync.ise.pull_all_endpoints:\
  Stopped, returning the ({}) endpoints we have so far".format(len(endpoints)))
     #########################################################
-    f = open("/opt/gsync_cache/ise_cache.json", "w")
-    f.write(json.dumps(endpoints, indent=4))
-    f.close()
+    if cache:
+        f = open("/opt/gsync_cache/ise_cache.json", "w")
+        f.write(json.dumps(endpoints, indent=4))
+        f.close()
     #########################################################
     return endpoints
 
@@ -267,7 +270,7 @@ def bulk_update(auth, group, in_ise_devices):
         endpoints += endpoint
     data = """<?xml version="1.0" encoding="utf-8"?>
 <ns4:endpointBulkRequest xmlns:ns8="network.ers.ise.cisco.com" resourceMediaType="vnd.com.cisco.ise.identity.endpoint.1.0+xml" operationType="update" xmlns:ers="ers.ise.cisco.com" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ns5="trustsec.ers.ise.cisco.com" xmlns:ns4="identity.ers.ise.cisco.com" xmlns:ns7="anc.ers.ise.cisco.com" xmlns:ns6="sxp.ers.ise.cisco.com">
-	<ns4:resourcesList>
+    <ns4:resourcesList>
 {}	</ns4:resourcesList>
 </ns4:endpointBulkRequest>""".format(endpoints)
     bulklog.info("gsuite_sync.ise.bulk_update:\
@@ -294,7 +297,7 @@ def bulk_create(auth, group, devices):
         endpoints += endpoint
     data = """<?xml version="1.0" encoding="utf-8"?>
 <ns4:endpointBulkRequest xmlns:ns8="network.ers.ise.cisco.com" resourceMediaType="vnd.com.cisco.ise.identity.endpoint.1.0+xml" operationType="create" xmlns:ers="ers.ise.cisco.com" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ns5="trustsec.ers.ise.cisco.com" xmlns:ns4="identity.ers.ise.cisco.com" xmlns:ns7="anc.ers.ise.cisco.com" xmlns:ns6="sxp.ers.ise.cisco.com">
-	<ns4:resourcesList>
+    <ns4:resourcesList>
 {}	</ns4:resourcesList>
 </ns4:endpointBulkRequest>""".format(endpoints)
     response = auth.put("/ers/config/endpoint/bulk/submit", data)
