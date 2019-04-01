@@ -56,7 +56,7 @@ def _parse_args(startlogs):
     misc.add_argument(
         "-v", "--version",
         action="version",
-        version='GSuite_Sync v0.1.1\n{}'.format(sys.version))
+        version='GSuite_Sync v0.1.2\n{}'.format(sys.version))
     required.add_argument(
         '-gc', "--gsuite_credential",
         help="GSuite Credential File",
