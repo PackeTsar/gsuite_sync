@@ -56,7 +56,7 @@ def _parse_args(startlogs):
     misc.add_argument(
         "-v", "--version",
         action="version",
-        version='GSuite_Sync v0.1.2\n{}'.format(sys.version))
+        version='GSuite_Sync v0.1.5\n{}'.format(sys.version))
     required.add_argument(
         '-gc', "--gsuite_credential",
         help="GSuite Credential File",
@@ -429,16 +429,22 @@ def maintain(args, google_auth, ise_auth, gsuite_path, ise_group):
     else:
         report.info("gsuite_sync.maintain:\
  Pushing ({}) devices".format(len(missing_devices)))
+        total_devices = len(missing_devices)
+        on_device = 1
         for device in missing_devices:
             try:
                 ise.create_mac(ise_auth, group, device)
                 report.info("gsuite_sync.maintain:\
- Device ({}) ({}) pushed as new device".format(
+ ({} of {}) Device ({}) ({}) pushed as new device".format(
+                                                on_device,
+                                                total_devices,
                                                 device["macAddress"],
                                                 device["serialNumber"]))
             except Exception:
                 report.info("gsuite_sync.maintain:\
- Updating ({}) ({}) since it is already an endpoint".format(
+ ({} of {}) Updating ({}) ({}) since it is already an endpoint".format(
+                                                    on_device,
+                                                    total_devices,
                                                     device["macAddress"],
                                                     device["serialNumber"]))
                 try:
@@ -448,6 +454,7 @@ def maintain(args, google_auth, ise_auth, gsuite_path, ise_group):
  Failed to update ({}) ({}) as ISE seems to be offline".format(
                                                 device["macAddress"],
                                                 device["serialNumber"]))
+            on_device += 1
 
 
 def full_sync(args, google_auth, ise_auth):

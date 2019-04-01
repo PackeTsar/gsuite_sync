@@ -111,7 +111,7 @@ Use VI to create a new file (`vi /etc/init.d/gsync`) and insert the below BASH s
 # description: gsync Daemon
 # processname: gsync
 
-DAEMON_PATH="/bin/"
+DAEMON_PATH="/usr/local/bin/"
 
 DAEMON=gsync
 STDOUTFILE=/etc/gsync/stdout.log
